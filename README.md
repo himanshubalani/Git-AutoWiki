@@ -1,64 +1,99 @@
 # Git AutoWiki
 
-Git AutoWiki is a repository-aware AI assistant that indexes a GitHub codebase into a vector store and answers natural-language questions about the project using retrieval-augmented generation (RAG).
+Git AutoWiki is a repository-aware AI assistant for exploring a GitHub codebase through a chat interface. It indexes a repository, stores relevant code chunks in Pinecone, and answers questions grounded in the repo’s actual code using LLM + retrieval.
 
-It fetches repository files from GitHub, skips noisy/binary files, chunks the remaining content, embeds the chunks using OpenAI embeddings, stores them in Pinecone, and then answers questions against the repo-specific vector index.
+The app combines:
+- a Next.js frontend for the GitWiki UI
+- an Express backend for API routes
+- async workflows via Inngest
+- GitHub repo fetch/indexing
+- OpenAI embeddings + Pinecone vector retrieval
+- repo-grounded Q&A through LangChain and OpenAI models
 
-## Features
+## Highlights
 
-- GitHub repo indexing
-- Automatic file filtering and chunking
-- OpenAI embeddings
-- Pinecone vector storage by repo namespace
-- Repo-grounded Q&A via LangChain + OpenAI
-- Async job execution with Inngest
-- Express API for triggering indexing and chat flows
+- Index a public or private GitHub repo into a repo-scoped Pinecone namespace
+- Skip noisy, binary, and lock files while indexing
+- Split content into chunks for semantic retrieval
+- Store embeddings and fetch the most relevant code snippets
+- Ask natural-language questions about architecture, auth, routing, and implementation details
+- View the answer in a polished interface with source references and renderable markdown responses
 
 ## Tech Stack
 
-- Node.js + Express
-- Inngest for async workflows
-- Octokit for GitHub API access
-- LangChain + OpenAI for embeddings and LLM answers
-- Pinecone for vector search
-- Docker-free local setup
+- Next.js 16
+- React 19
+- Tailwind CSS
+- Express
+- Inngest
+- Octokit
+- LangChain
+- OpenAI
+- Pinecone
+- TypeScript
 
 ## Project Structure
 
 ```text
-src/
-  index.js
-  inngest/
-    client.js
-    index.js
-    functions/
-      askQuestions.js
-      helloworld.js
-      indexRepo.js
-  routes/
-    chat.routes.js
-    index.routes.js
-  service/
-    chunker.js
-    github.js
-    rag.js
-    vectorStore.js
+.
+├── app/
+│   ├── api/
+│   │   ├── chat/
+│   │   │   └── route.ts
+│   │   └── index/
+│   │       └── route.ts
+│   ├── components/
+│   │   └── ai-elements/
+│   │       ├── conversation.tsx
+│   │       ├── message.tsx
+│   │       ├── prompt-input.tsx
+│   │       ├── sources.tsx
+│   │       ├── task.tsx
+│   │       └── ...
+│   ├── globals.css
+│   ├── layout.tsx
+│   └── page.tsx
+├── src/
+│   ├── index.js
+│   ├── inngest/
+│   │   ├── client.js
+│   │   ├── index.js
+│   │   └── functions/
+│   │       ├── askQuestions.js
+│   │       ├── helloworld.js
+│   │       └── indexRepo.js
+│   ├── routes/
+│   │   ├── chat.routes.js
+│   │   └── index.routes.js
+│   └── service/
+│       ├── chunker.js
+│       ├── github.js
+│       ├── rag.js
+│       └── vectorStore.js
+├── .env
+├── components.json
+├── next-env.d.ts
+├── package.json
+├── pnpm-lock.yaml
+├── tailwind.config.ts
+├── tsconfig.json
+├── README.md
+└── UI_SPEC.md
 ```
 
 ## Prerequisites
 
 - Node.js 18+
-- npm or pnpm
-- GitHub token with repository access
+- pnpm (preferred) or npm
+- GitHub token with repo access
 - OpenAI API key
-- Pinecone API key and index
+- Pinecone API key and target index
 
 ## Environment Variables
 
-Create a `.env` file in the project root with the following values:
+Create a `.env` file in the project root:
 
 ```env
-INNGEST_DEV=1
 PORT=3000
 
 GITHUB_TOKEN=your_github_token
@@ -67,186 +102,149 @@ PINECONE_API_KEY=your_pinecone_api_key
 PINECONE_INDEX=git-wiki
 ```
 
-## Installation
+Optional extras used by the local workflow:
 
-```bash
-npm install
+```env
+INNGEST_DEV=1
 ```
 
-Or with pnpm:
+## Installation
+
+With pnpm:
 
 ```bash
 pnpm install
 ```
 
-## Run the App
+With npm:
 
 ```bash
-npm run dev
+npm install
 ```
 
-This starts the server with nodemon:
+## Running the Project
+
+The project runs three local pieces together:
+- Express API server
+- Next.js app
+- Inngest dev server
+
+### Start everything
 
 ```bash
-nodemon src/index.js
+pnpm dev
 ```
 
-The app listens on port `3000` by default.
+### Run individually
 
-## API Specification
+```bash
+pnpm run server
+pnpm run client
+pnpm run inngest
+```
 
-### Base URL
+### Production build
+
+```bash
+pnpm build
+```
+
+### Start production server
+
+```bash
+pnpm start
+```
+
+The app is typically available at:
 
 ```text
 http://localhost:3000
 ```
 
-### 1) Health check
+## Core API Routes
 
-#### GET /
+### 1) Index a repository
 
-Returns a simple server response.
-
-Example:
-
-```bash
-curl http://localhost:3000/
-```
-
-Example response:
-
-```text
-hello world
-```
-
----
-
-### 2) Index a repository
-
-#### POST /api/index
-
-Triggers the repo indexing pipeline asynchronously through Inngest.
+POST `/api/index`
 
 Request body:
 
 ```json
 {
-  "repo": "https://github.com/owner/repo",
+  "repo": "https://github.com/vercel/next.js",
   "githubToken": "ghp_xxx"
 }
 ```
 
 Behavior:
+- loads the repo tree from GitHub
+- filters out noisy files
+- chunks the repo content
+- embeds the chunks
+- upserts them into Pinecone by repo namespace
 
-- Parses owner/repo from the GitHub URL
-- Uses the provided token or falls back to `GITHUB_TOKEN`
-- Sends the event `repo/index.requested`
-- Starts the indexing workflow in the background
+### 2) Ask a question about the repo
 
-Example:
-
-```bash
-curl -X POST http://localhost:3000/api/index \
-  -H "Content-Type: application/json" \
-  -d '{
-    "repo": "https://github.com/vercel/next.js",
-    "githubToken": "ghp_xxx"
-  }'
-```
-
-Example response:
-
-```json
-"Repo Indexing"
-```
-
-The indexing job internally performs:
-
-1. GitHub file fetch
-2. File filtering
-3. Chunking
-4. Embedding
-5. Pinecone upsert
-
-Success payload returned by the Inngest job:
-
-```json
-{
-  "repo": "owner/repo",
-  "fileCount": 42,
-  "chunkCount": 180,
-  "saved": true
-}
-```
-
----
-
-### 3) Ask a question about an indexed repository
-
-#### POST /api/chat
-
-Triggers the repo-grounded Q&A flow.
+POST `/api/chat`
 
 Request body:
 
 ```json
 {
-  "repo": "https://github.com/owner/repo",
+  "repo": "vercel/next.js",
   "question": "How does authentication work?"
 }
 ```
 
 Behavior:
-
-- Parses the repo name
-- Sends the event `chat/question.requested`
-- Executes the retrieval pipeline against the repo namespace in Pinecone
-- Sends the top matching chunks to the OpenAI model
-- Returns the final answer and source files
-
-Example:
-
-```bash
-curl -X POST http://localhost:3000/api/chat \
-  -H "Content-Type: application/json" \
-  -d '{
-    "repo": "https://github.com/owner/repo",
-    "question": "How does authentication work in this project?"
-  }'
-```
+- queries Pinecone for relevant indexed chunks
+- sends the results to the LLM
+- returns the grounded answer with supporting sources
 
 Example response:
 
 ```json
 {
-  "repo": "owner/repo",
-  "question": "How does authentication work in this project?",
-  "status": "completed",
-  "answer": "Authentication is handled by the middleware in the auth layer...",
+  "answer": "Authentication is handled by the middleware layer...",
   "sources": [
-    "src/auth.js",
-    "src/middleware/auth.js",
-    "README.md"
+    {
+      "path": "src/middleware/auth.ts",
+      "lines": "Lines 12-38",
+      "snippet": "export async function authMiddleware(req: NextRequest) { ... }"
+    }
   ]
 }
 ```
 
-If no matching content is found for a repo, the backend returns:
+## Repo Workflow
 
-```json
-{
-  "answer": "No indexed content was found for this repo. Index it first, then try again.",
-  "sources": []
-}
+1. User enters a GitHub repo URL in the UI
+2. The app indexes the repo and stores embeddings in Pinecone
+3. User asks a technical question in natural language
+4. The app retrieves the most relevant code chunks
+5. The LLM answers using those retrieved chunks as context
+6. The final answer is returned with source references
+
+## Notes
+
+- The app expects the repo to be indexed before asking semantic questions.
+- Pinecone namespace names are derived from the repo slug.
+- The frontend and server are intentionally separate, with the UI living under `app/` and the backend logic under `src/`.
+- The README may evolve as the app’s retrieval and LLM workflow changes.
+
+## Useful Commands
+
+```bash
+pnpm install
+pnpm dev
+pnpm build
+pnpm start
 ```
 
----
+## License
 
-### 4) Inngest endpoint
+This project is currently set to the ISC license in the package metadata.
 
-#### POST /api/inngest
-
-This is the Inngest webhook endpoint used by Inngest to receive and execute function triggers.
 
 It is not typically called directly by a user-facing API client; it is used by Inngest itself.
 

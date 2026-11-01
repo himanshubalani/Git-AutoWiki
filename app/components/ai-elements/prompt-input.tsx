@@ -16,10 +16,16 @@ export function PromptInput({
   placeholder,
   disabled,
 }: PromptInputProps) {
+  const submitCurrent = () => {
+    if (disabled || !value.trim()) return;
+    onSubmit();
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
+      if (e.nativeEvent.isComposing || e.repeat) return;
       e.preventDefault();
-      onSubmit();
+      submitCurrent();
     }
   };
 
@@ -36,7 +42,8 @@ export function PromptInput({
       <div className="flex items-center justify-between pt-1 border-t border-border/50 font-mono text-[11px] text-secondaryText">
         <span>Shift + Enter for newline</span>
         <button
-          onClick={onSubmit}
+          type="button"
+          onClick={submitCurrent}
           disabled={disabled || !value.trim()}
           className="flex items-center gap-1 rounded bg-primary px-3 py-1 text-primary-foreground font-semibold disabled:opacity-40 hover:opacity-90 transition-opacity"
         >

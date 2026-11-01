@@ -1,5 +1,4 @@
 import { Router } from "express";
-import { inngest } from "../inngest/client.js";
 import { parseRepo } from "../service/github.js";
 import { askQuestion } from "../service/rag.js";
 
@@ -15,13 +14,6 @@ router.post("/", async (req, res) => {
   const { repoKey } = parseRepo(repo);
 
   try {
-    // 1. Emit event to Inngest for logging / tracking
-    await inngest.send({
-      name: "chat/question.requested",
-      data: { repo: repoKey, question },
-    });
-
-    // 2. Call the RAG pipeline directly so the HTTP client gets the real LLM answer
     const result = await askQuestion(repoKey, question);
 
     return res.status(200).json({
