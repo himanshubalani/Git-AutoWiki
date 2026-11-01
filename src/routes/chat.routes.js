@@ -1,38 +1,46 @@
 import { Router } from "express";
 import { inngest } from "../inngest/client.js";
 import { parseRepo } from "../service/github.js";
+import { askQuestion } from "../service/rag.js";
 
 const router = Router();
-
-async function startChatJob(repo, question) {
-  const { repoKey } = parseRepo(repo);
-
-  console.log("[API] Chat question received:", {
-    repo,
-    repoKey,
-    question,
-  });
-
-  await inngest.send({
-    name: "chat/question.requested",
-    data: { repo: repoKey, question },
-  });
-
-  console.log("[API] Chat event sent to Inngest:", { repoKey, question });
-  return "check your inngest";
-}
 
 router.post("/", async (req, res) => {
   const { repo, question } = req.body ?? {};
 
   if (!repo || !question) {
-    console.log("[API] Chat request rejected: repo and question are required");
     return res.status(400).json({ error: "repo and question are required" });
   }
 
-  const response = await startChatJob(repo, question);
-  console.log("[API] Chat response sent to client:", response);
-  res.status(202).json(response);
+  const { repoKey } = parseRepo(repo);
+
+  try {
+    // 1. Emit event to Inngest for logging / tracking
+    await inngest.send({
+      name: "chat/question.requested",
+      data: { repo: repoKey, question },
+    });
+
+    // 2. Call the RAG pipeline directly so the HTTP client gets the real LLM answer
+    const result = await askQuestion(repoKey, question);
+
+    return res.status(200).json({
+      repo: repoKey,
+      question,
+      status: "completed",
+      answer: result.answer,
+      sources: result.sources.map((src) => ({
+        path: src,
+        lines: "Indexed Context",
+        snippet: `Source file referenced from vector search: ${src}`,
+      })),
+    });
+  } catch (error) {
+    console.error("[API] Chat processing error:", error);
+    return res.status(500).json({
+      error: error.message || "Failed to process chat question",
+    });
+  }
 });
 
 export default router;

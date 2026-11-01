@@ -1,0 +1,58 @@
+@import "tailwindcss";
+@config "../tailwind.config.ts";
+
+@layer base {
+  :root {
+    --background: 40 20% 99%;
+    --foreground: 0 0% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 10%;
+    --surface-elevated: 45 14% 95%;
+    --secondary-text: 35 4% 45%;
+    --primary: 143 54% 33%;
+    --primary-foreground: 0 0% 100%;
+    --primary-subtle: 130 35% 93%;
+    --border: 38 10% 85%;
+    --input: 38 10% 85%;
+    --ring: 143 54% 33%;
+    --error: 6 52% 47%;
+    --warning: 37 67% 39%;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 160 5% 10%;
+    --foreground: 60 5% 94%;
+    --card: 144 6% 13%;
+    --card-foreground: 60 5% 94%;
+    --popover: 144 6% 13%;
+    --popover-foreground: 60 5% 94%;
+    --surface-elevated: 144 6% 16%;
+    --secondary-text: 130 4% 59%;
+    --primary: 140 54% 65%;
+    --primary-foreground: 160 5% 10%;
+    --primary-subtle: 138 22% 19%;
+    --border: 143 4% 24%;
+    --input: 143 4% 24%;
+    --ring: 140 54% 65%;
+    --error: 6 67% 66%;
+    --warning: 40 76% 63%;
+  }
+
+  html,
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+  }
+}
+
+* {
+  font-variant-numeric: tabular-nums;
+}
+
+.workbench-panel {
+  border: 1px solid hsl(var(--border));
+  background-color: hsl(var(--card));
+}
